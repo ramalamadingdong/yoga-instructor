@@ -8,26 +8,36 @@ POSITION_URL = "http://localhost:5000/get_position"
 INSTRUCTION_URL = "http://localhost:5000/get_instructions"
 
 try:
-    # Load the TFLite model
-    interpreter = tf.lite.Interpreter(model_path='hrnet_pose-hrnetpose-w8a8.tflite')
-    delegate = tf.lite.load_delegate('libQnnTFLiteDelegate.so', { 'backend_type': 'htp' })
-    interpreter.modify_graph_with_delegate(delegate)
-    interpreter.allocate_tensors()
+  delegate = tf.lite.experimental.load_delegate('libQnnTFLiteDelegate.so')
+except:
+    delegate = None
+    print("Error loading delegate")
 
-    # Get input and output details
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
-except Exception as e:
-    print(f"Error loading model: {e}")
-    sys.exit(1)
+if delegate:
+  interpreter = tf.lite.Interpreter(
+      model_path='hrnet_pose-hrnetpose-w8a8.tflite',
+      experimental_delegates=[delegate])
+else:
+  interpreter = tf.lite.Interpreter(model_path='hrnet_pose-hrnetpose-w8a8.tflite')
 
+# Get input and output details
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
 
+# Allocate tensors
+interpreter.allocate_tensors()
+
+# Print model input requirements
+print("Model input details:", input_details[0])
+print("Model output details:", output_details[0])
+
+print("Model loaded")
 def pose_estimation(image):
     """Get pose keypoints from the frame using TFLite HRNet"""
     # Preprocess the image
-    input_size = (256, 256)  # HRNet input size
+    input_size = (192, 256)  # HRNet input size (width, height)
     img = cv2.resize(image, input_size)
-    img = img.astype(np.float32) / 255.0  # Normalize to [0,1]
+    # Keep as uint8 since model expects uint8 input
     img = np.expand_dims(img, axis=0)  # Add batch dimension
     
     # Set input tensor
@@ -79,23 +89,38 @@ def get_pose_hold_instructions():
 def main():
     # Initialize video
     while True:
-        #Get target yoga position from server
-        target_pose = get_position()
-        print(f"Waiting for human to assume {target_pose}...")
-        
-        # Get current pose estimation
-        current_pose = pose_estimation()
-        
-        # Compare poses
-        position = pose_classification(current_pose)
-        
-        if position == target_pose:
-            get_pose_hold_instructions(target_pose)
-            print("Get infromation from Deepseek server about said position then SAY it") 
+        try:
+            #Get target yoga position from server
+            target_pose = get_position()
+            if target_pose is None:
+                print("Waiting for server connection...")
+                continue
+                
+            print(f"Waiting for human to assume {target_pose}...")
+            
+            # Read and process the image
+            image = cv2.imread("test.jpg")
+            if image is None:
+                print("Error: Could not read image file")
+                continue
+                
+            # Get current pose estimation
+            current_pose = pose_estimation(image)
+            
+            # Compare poses
+            position = pose_classification(current_pose)
+            
+            if position == target_pose:
+                instructions = get_pose_hold_instructions()
+                if instructions:
+                    print(instructions)
+            else:
+                print("Not quite there yet")
+                
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            continue
 
-        else:
-            print("Say not quite there yet")
-        
 if __name__ == "__main__":
     main()
 

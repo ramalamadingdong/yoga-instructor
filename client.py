@@ -1,13 +1,12 @@
 import requests
 import time
 
-SERVER_URL = "http://localhost:5000/yoga_complete"
+SERVER_URL = "http://localhost:5000/get_position"
 
 
 def get_and_print_position():
     response = requests.get(SERVER_URL)
-    position = response.json()['position']
-    print(f"Current yoga position: {position}")
+    position = response.json()
     return position
 
 while True:

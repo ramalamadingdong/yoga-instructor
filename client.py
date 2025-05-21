@@ -3,6 +3,7 @@ import tensorflow as tf
 import numpy as np
 import cv2
 import sys
+import time
 
 POSITION_URL = "http://localhost:5000/get_position"
 INSTRUCTION_URL = "http://localhost:5000/get_instructions"
@@ -61,10 +62,11 @@ def pose_estimation(image):
     
     return np.array(keypoints)
 
-def pose_classification(current_pose):
+def pose_classification(current_pose, target_pose):
     """Check if the current pose matches the target yoga position"""
-    #TODO: Implement yoga position check
-    return True
+    # TODO: Implement proper pose comparison logic
+    # For now, return a tuple of (is_correct, feedback)
+    return True, "Good form!"
 
 def get_position():
     try:
@@ -87,38 +89,51 @@ def get_pose_hold_instructions():
         return None
 
 def main():
-    # Initialize video
+    print("Welcome to your AI Yoga Instructor!")
+    
     while True:
         try:
-            #Get target yoga position from server
+            # Get target yoga position from server
             target_pose = get_position()
             if target_pose is None:
                 print("Waiting for server connection...")
+                time.sleep(2)  # Add delay to prevent constant polling
                 continue
                 
-            print(f"Waiting for human to assume {target_pose}...")
+            print(f"\nLet's practice the {target_pose} pose!")
+            print("Please get into position...")
             
             # Read and process the image
             image = cv2.imread("test.jpg")
             if image is None:
                 print("Error: Could not read image file")
+                time.sleep(2)
                 continue
                 
             # Get current pose estimation
             current_pose = pose_estimation(image)
             
-            # Compare poses
-            position = pose_classification(current_pose)
+            # Compare poses and get feedback
+            is_correct, feedback = pose_classification(current_pose, target_pose)
             
-            if position == target_pose:
+            if is_correct:
+                print(f"\nPerfect! {feedback}")
+                print("\nNow let's hold this position...")
+                
                 instructions = get_pose_hold_instructions()
                 if instructions:
+                    print("\nInstructions:")
                     print(instructions)
+                    time.sleep(10)
+                    print("Great job! Let's move on to the next pose.")
             else:
-                print("Not quite there yet")
+                print(f"\nNot quite there yet. {feedback}")
+                print("Please adjust your position and try again.")
+                time.sleep(2)  # Give time to adjust
                 
         except Exception as e:
             print(f"Error occurred: {e}")
+            time.sleep(2)
             continue
 
 if __name__ == "__main__":
